@@ -10,13 +10,23 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.lifecycleScope
+import com.example.jetpackapploginmvvm.model.AppDatabase
+import com.example.jetpackapploginmvvm.model.UserRepository
 import com.example.jetpackapploginmvvm.navigation.AppNavigation
 import com.example.jetpackapploginmvvm.ui.theme.AppMVVMTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val db = AppDatabase.getDatabase(applicationContext)
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            UserRepository.prepararDadesDeProva(db.userDao())
+        }
         setContent {
             AppMVVMTheme {
                 AppNavigation(

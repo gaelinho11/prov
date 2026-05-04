@@ -1,11 +1,13 @@
 package com.example.jetpackapploginmvvm.navigation
 
+import android.app.Application
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavHostController
 import androidx.navigation.NavOptionsBuilder
 import androidx.navigation.NavType
 import androidx.navigation.PopUpToBuilder
@@ -13,10 +15,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.jetpackapploginmvvm.model.AppDatabase
+import com.example.jetpackapploginmvvm.view.ScreenBlackjack
 import com.example.jetpackapploginmvvm.view.ScreenLogin
+import com.example.jetpackapploginmvvm.view.ScreenRules
 import com.example.jetpackapploginmvvm.view.ScreenWelcome
-import com.example.jetpackapploginmvvm.view.simon.ScreenSimon
+import com.example.jetpackapploginmvvm.viewmodel.BlackjackViewModel
 import com.example.jetpackapploginmvvm.viewmodel.LoginViewModel
+import com.example.jetpackapploginmvvm.viewmodel.WelcomeViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.example.jetpackapploginmvvm.model.UserDao
 
 // FUNCIONS AUXILIARS FIRA DE LA UI
 
@@ -45,84 +53,114 @@ fun configurarArgUsername(builder: androidx.navigation.NavArgumentBuilder) {
 fun AppNavigation(
     onCloseApp: () -> Unit
 ){
-    // El navegador és un tipus d'objecte de la llibreria navigation
     val navController = rememberNavController()
-    
-    //Funcions de suport per als botons de les pantalles
-    fun ferLogout() = navController.navigate(AppScreens.Login.route, ::configurarPopUpLogin)
-    fun anarASimon() = navController.navigate(AppScreens.Simon.route)
+
+    fun ferLogout() = navController.navigate(AppScreens.Login.route) {
+        popUpTo(AppScreens.Login.route) { inclusive = true }
+    }
+
+    //aqui he afegit la meva funcio per anar a la meva pantalla de blackjack
+    fun anarABlackjack() = navController.navigate(AppScreens.Blackjack.route)
+
+    //aqui igual a la meva 4a pantalla que son les regles
+    fun anarARegles() = navController.navigate(AppScreens.Rules.route)
+
     fun tornarEnrere() = navController.popBackStack()
 
-    // Funció de suport per processar la navegació que ve del ViewModel (Login)
     fun processarRutaViewModelLogin(route: String) {
-        // Em pases un string i li dic al controlador on ha d'anar i om.
-        navController.navigate(route, ::configurarPopUpLogin)
+        navController.navigate(route)
     }
-    
-    
-    // Això també és un objecte de la llibreria
+
     NavHost(
         navController = navController,
         startDestination = AppScreens.Login.route
-    ){      // Aqui es defineixen les rutes
-        // RUTA 1: Login
+    ){
         composable( route= AppScreens.Login.route ){
-            // instancia del viewModel de Login
             val viewModel: LoginViewModel = viewModel()
-
             val state by viewModel.uiState.collectAsState()
-            // by es un operador que delega la responsabilitat de gestionar
-            // com s'assigna l'objecte (en aquest cas els valors de l'estat)
 
-            // Escoltem ordres de navegació
+            val context = LocalContext.current
+            val dao = AppDatabase.getDatabase(context).userDao()
+
             LaunchedEffect(key1 = true) {
-                // Les pot donar el viewModel (en aquest cas LoginViewModel
-                viewModel.navigationChannel.collect ( ::processarRutaViewModelLogin)
+                viewModel.navigationChannel.collect { route ->
+                    navController.navigate(route)
+                }
             }
 
-            // Finalment pintem la pantalla que ens han demanat si hem arribat aquí
             ScreenLogin(
                 state = state,
                 onUsernameChange = viewModel::onUsernameChange,
                 onPasswordChange = viewModel::onPasswordChange,
-                onRegisterClick = viewModel::onRegisterClick,
-                onLoginClick = viewModel::onLoginClick,
+                onRegisterClick = { viewModel.onRegisterClick(dao) },
+                onLoginClick = { viewModel.onLoginClick(dao) },
                 onCloseClick = onCloseApp
             )
         }
 
-
-
-        // RUTA 2 : WELCOME
+        //el mateix welcome que tenies tu però canvio el simon  per el blackjack i afegeixo la pantalla de les regles
         composable(
             route = AppScreens.Welcome.route,
-            arguments = listOf(navArgument("username", :: configurarArgUsername))
-        ){
-            // Alerta  -> !!!
-            backStackEntry ->
-            // backStackEntry és un paràmetre de composable,
-            // en concret composable( route, arguments, (backStackEntry) -> {Lambda} )
+            arguments = listOf(navArgument("username") { type = NavType.StringType })
+        ){ backStackEntry ->
             val username = backStackEntry.arguments?.getString("username") ?: "Desconegut"
 
-            // Welcome no té estats, però si username com a paràmetre
+            // porto el DAO i instacio el ViewModel amb la Factory
+            val context = LocalContext.current
+            val dao = AppDatabase.getDatabase(context).userDao()
+            val welcomeVM: WelcomeViewModel = viewModel(factory = WelcomeViewModelFactory(dao))
+
             ScreenWelcome(
-                msgWelcome = "Hola, $username",
+                username = username,
+                ranking = welcomeVM.rankingMundial,
+                isLoading = welcomeVM.estaCarregant,
+                mostrarDialogError = welcomeVM.mostrarDialogError,
+                missatgeError = welcomeVM.textErrorDialog,
+                onDismissDialog = { welcomeVM.amagarDialog() },
                 onLogoutClick = ::ferLogout,
-                onCloseClick = onCloseApp,
-                // NOU EVENT: Quan clickem jugar!
-                onStartGame = ::anarASimon
+                onStartGame = ::anarABlackjack,
+                onRulesClick = ::anarARegles,
+                onCloseApp = onCloseApp
             )
         }
 
-        // NOVA RUTA 3 : La pantalla del Simon
-        composable (route = AppScreens.Simon.route){
-            ScreenSimon(
-                onBackClick = ::tornarEnrere,
-                //torna enrera 1 a l'historial de navegació.
+        composable(route = AppScreens.Blackjack.route + "/{username}") { backStackEntry ->
+            val username = backStackEntry.arguments?.getString("username") ?: "Desconegut"
+            val context = LocalContext.current
+            val application = context.applicationContext as Application
+            val dao = AppDatabase.getDatabase(context).userDao()
 
-                onCloseClick = onCloseApp
-                // Hem definit onCloseApp de manera general.
+            //faig servir la factory que he creat per crear el viewmodel amb el dao y la application
+            val blackjackVM: BlackjackViewModel = viewModel(
+                factory = BlackjackViewModelFactory(application, dao, username)
+            )
+
+            // li passo el viewModel ja creat a la screen perque tingui be tots els parametres
+            ScreenBlackjack(
+                viewModel = blackjackVM,
+                onBack = { navController.popBackStack() }
             )
         }
+
+        //afegeixo les regles
+        composable (route = AppScreens.Rules.route){
+            ScreenRules(
+                onBack = ::tornarEnrere
+            )
+        }
+    }
+
+}
+class BlackjackViewModelFactory(
+    private val application: Application,
+    private val dao: UserDao,
+    private val username: String
+) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(BlackjackViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return BlackjackViewModel(application, dao, username) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
