@@ -118,13 +118,15 @@ fun AppNavigation(
                 missatgeError = welcomeVM.textErrorDialog,
                 onDismissDialog = { welcomeVM.amagarDialog() },
                 onLogoutClick = ::ferLogout,
-                onStartGame = ::anarABlackjack,
+                navController = navController,
                 onRulesClick = ::anarARegles,
                 onCloseApp = onCloseApp
             )
         }
 
-        composable(route = AppScreens.Blackjack.route + "/{username}") { backStackEntry ->
+        composable(
+            route = AppScreens.Blackjack.route + "/{username}" // Usem 'username'
+        ) { backStackEntry ->
             val username = backStackEntry.arguments?.getString("username") ?: "Desconegut"
             val context = LocalContext.current
             val application = context.applicationContext as Application

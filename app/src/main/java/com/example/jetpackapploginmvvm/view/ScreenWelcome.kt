@@ -24,7 +24,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavHostController
 import com.example.jetpackapploginmvvm.model.api.RemoteUser
+import com.example.jetpackapploginmvvm.navigation.AppScreens
 
 // COM PINTO LA PANTALLA?
 @Composable
@@ -36,7 +38,7 @@ fun ScreenWelcome(
     missatgeError: String,
     onDismissDialog: () -> Unit,
     onLogoutClick: () -> Unit,
-    onStartGame: () -> Unit,
+    navController: NavHostController,
     onRulesClick: () -> Unit,
     onCloseApp: () -> Unit
 ){
@@ -82,7 +84,10 @@ fun ScreenWelcome(
         Spacer(modifier = Modifier.height(24.dp))
 
         // botons
-        Button(onClick = onStartGame, modifier = Modifier.fillMaxWidth()) {
+        Button(onClick = {
+
+            navController.navigate(AppScreens.Blackjack.route + "/$username")
+        }) {
             Text("Jugar al Blackjack")
         }
         Button(onClick = onRulesClick, modifier = Modifier.fillMaxWidth()) {
