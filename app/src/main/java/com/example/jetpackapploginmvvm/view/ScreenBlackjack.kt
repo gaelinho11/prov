@@ -2,6 +2,7 @@ package com.example.jetpackapploginmvvm.view
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -42,9 +43,10 @@ fun ScreenBlackjack(
     )
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier.fillMaxSize().padding(16.dp).background(Color(0xFF1B5E20)),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
+
     ) {
         Text(text = "El teu saldo: ${state.dinersTotals}€", fontWeight = FontWeight.ExtraBold)
 

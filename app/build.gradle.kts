@@ -11,8 +11,8 @@ android {
 
     defaultConfig {
         applicationId = "com.example.jetpackapploginmvvm"
-        minSdk = 24
-        targetSdk = 36
+        minSdk = 29
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
@@ -44,6 +44,8 @@ dependencies {
 
     implementation(libs.androidx.compose.foundation.layout)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.remote.creation.compose)
+    implementation(libs.androidx.compose.remote.creation.core)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

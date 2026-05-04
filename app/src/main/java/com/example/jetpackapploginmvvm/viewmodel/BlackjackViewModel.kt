@@ -1,8 +1,15 @@
 package com.example.jetpackapploginmvvm.viewmodel
 import android.app.Application
+import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.media.SoundPool
+import androidx.compose.remote.creation.compose.state.sqrt
+import androidx.compose.remote.creation.toFloat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.jetpackapploginmvvm.R
@@ -16,8 +23,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.sqrt
 
-class BlackjackViewModel(application: Application, private val dao: UserDao, private val username: String) : AndroidViewModel(application) {
+class BlackjackViewModel(application: Application, private val dao: UserDao, private val username: String) : AndroidViewModel(application),
+    SensorEventListener {
     data class BlackjackUiState(
         val cartesJugador: List<Carta> = emptyList(),
         val cartesBanca: List<Carta> = emptyList(),
@@ -41,10 +50,22 @@ class BlackjackViewModel(application: Application, private val dao: UserDao, pri
     private var soGuanyarId: Int = 0
     private var soPerdreId: Int = 0
 
+    private val sensorManager = application.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    private var accelerometer: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+
+    //i aquestes per calcular el shake
+    private var acceleration = 0f
+    private var currentAcceleration = SensorManager.GRAVITY_EARTH
+    private var lastAcceleration = SensorManager.GRAVITY_EARTH
 
     init {
         inicialitzarAudio()//inicialitzo el audio al init
         carregarDiners()//carrego la informacio dels diners al init
+
+        // registro el sensor quan es crea el viewmodel
+        accelerometer?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+        }
     }
 
     private fun carregarDiners() {
@@ -108,6 +129,7 @@ class BlackjackViewModel(application: Application, private val dao: UserDao, pri
         super.onCleared()
         mediaPlayer?.release()
         soundPool?.release()
+        sensorManager.unregisterListener(this)
     }
 
     private fun calcularPuntuacio(cartes: List<Carta>): Int {
@@ -210,8 +232,31 @@ class BlackjackViewModel(application: Application, private val dao: UserDao, pri
         }
 
         _uiState.update { it.copy(missatge = resultat, jocAcabat = true) } //acabo el joc i passo el resultat
-        actualitzarDinersBD(nousDiners) // actualitzo els diners a la base de dades
+
     }
+    override fun onSensorChanged(event: SensorEvent?) { //quan detecto que es mou el dispositiu demano carta si es pot
+        if (event != null && event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+            val x = event.values[0]
+            val y = event.values[1]
+            val z = event.values[2]
+
+            lastAcceleration = currentAcceleration
+            currentAcceleration = sqrt((x * x + y * y + z * z).toDouble()).toFloat()
+            val delta = currentAcceleration - lastAcceleration
+            acceleration = acceleration * 0.9f + delta
+
+            // Si detectem sacsejada i és el torn del jugador
+            if (acceleration > 12) {
+                val estat = _uiState.value
+                if (estat.apostaFeta && !estat.jocAcabat && estat.tornJugador) {
+                    demanarCarta() // Cridem a la teva funció de demanar carta
+                }
+            }
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+
 
 
 }
