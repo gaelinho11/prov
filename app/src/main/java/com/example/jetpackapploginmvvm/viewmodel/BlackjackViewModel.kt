@@ -184,22 +184,27 @@ class BlackjackViewModel(application: Application, private val dao: UserDao, pri
         val resultat = when { //poso totes les opcions de guanyador
             pJugador > 21 ->{//he hagut de psoar aquest el primer de tots perque encara que es passo la banca si et passes primer perds
                 dispararEfecte(soPerdreId)
+                actualitzarDinersBD(nousDiners-aposta)
                 "T'has passat! Perds $aposta€."
             }
             pBanca > 21 ->{
                 dispararEfecte(soGuanyarId)
+                actualitzarDinersBD(nousDiners+aposta)
                 "La banca s'ha passat! Guanyes $aposta€."
             }
             pJugador > pBanca ->{
                 dispararEfecte(soGuanyarId)
+                actualitzarDinersBD(nousDiners+aposta)
                 "Has superat la banca! Guanyes $aposta€."
             }
             pJugador == pBanca ->{
                 dispararEfecte(soGuanyarId)
+                actualitzarDinersBD(nousDiners)
                 "Empat! Recuperes l'aposta."
             }
             else -> {
                 dispararEfecte(soPerdreId)
+                actualitzarDinersBD(nousDiners-aposta)
                 "La banca guanya, Perds $aposta€."
             }
         }

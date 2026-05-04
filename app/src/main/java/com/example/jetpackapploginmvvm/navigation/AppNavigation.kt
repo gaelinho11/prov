@@ -159,10 +159,6 @@ class BlackjackViewModelFactory(
     private val username: String
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(BlackjackViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return BlackjackViewModel(application, dao, username) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
+        return BlackjackViewModel(application, dao, username) as T
     }
 }
