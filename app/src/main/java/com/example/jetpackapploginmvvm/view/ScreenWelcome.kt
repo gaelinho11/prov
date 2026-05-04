@@ -74,7 +74,7 @@ fun ScreenWelcome(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(text = user.username)
-                            Text(text = "${user.diners} pts")
+                            Text(text = "${user.diners} €")
                         }
                     }
                 }

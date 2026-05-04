@@ -17,6 +17,7 @@ import com.example.jetpackapploginmvvm.model.Baraja
 import com.example.jetpackapploginmvvm.model.Carta
 import com.example.jetpackapploginmvvm.model.UserDao
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,7 +39,10 @@ class BlackjackViewModel(application: Application, private val dao: UserDao, pri
 
         val dinersTotals: Int = 0,
         val apostaActual: Int = 0,
-        val apostaFeta: Boolean = false
+        val apostaFeta: Boolean = false,
+
+        val segonsPartida: Int = 0,
+        val jocEnPausa: Boolean = false
     )
 
     private val _uiState = MutableStateFlow(BlackjackUiState())
@@ -57,6 +61,8 @@ class BlackjackViewModel(application: Application, private val dao: UserDao, pri
     private var acceleration = 0f
     private var currentAcceleration = SensorManager.GRAVITY_EARTH
     private var lastAcceleration = SensorManager.GRAVITY_EARTH
+
+    private var cronometreJob: Job? = null //crono per demostrar que es pausa quan s'executa en segon pla
 
     init {
         inicialitzarAudio()//inicialitzo el audio al init
@@ -234,27 +240,74 @@ class BlackjackViewModel(application: Application, private val dao: UserDao, pri
         _uiState.update { it.copy(missatge = resultat, jocAcabat = true) } //acabo el joc i passo el resultat
 
     }
-    override fun onSensorChanged(event: SensorEvent?) { //quan detecto que es mou el dispositiu demano carta si es pot
+    override fun onSensorChanged(event: SensorEvent?) {
         if (event != null && event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
             val x = event.values[0]
             val y = event.values[1]
             val z = event.values[2]
 
             lastAcceleration = currentAcceleration
+            // Calculem l'acceleració actual (mòdul del vector)
             currentAcceleration = sqrt((x * x + y * y + z * z).toDouble()).toFloat()
+
             val delta = currentAcceleration - lastAcceleration
+            // Filtre per suavitzar el moviment
             acceleration = acceleration * 0.9f + delta
 
-            // Si detectem sacsejada i és el torn del jugador
-            if (acceleration > 12) {
+            // Baixem el llindar a 10f per facilitar la prova a l'emulador
+            if (acceleration > 10f) {
                 val estat = _uiState.value
+                // Comprovació de seguretat: que hagi apostat, no hagi acabat i sigui el seu torn
                 if (estat.apostaFeta && !estat.jocAcabat && estat.tornJugador) {
-                    demanarCarta() // Cridem a la teva funció de demanar carta
+                    demanarCarta()
+                    // Reiniciem l'acceleració per no demanar 5 cartes de cop
+                    acceleration = 0f
                 }
             }
         }
     }
 
+    fun iniciarCronometre() {
+        cronometreJob?.cancel()
+        cronometreJob = viewModelScope.launch {
+            while (true) {
+                delay(1000)
+                _uiState.update { it.copy(segonsPartida = it.segonsPartida + 1) }
+            }
+        }
+    }
+
+    fun pausarJoc() {
+        cronometreJob?.cancel()//aturo el temps
+        desactivarSensors()//aturo el sensotr
+        mediaPlayer?.pause()//paro la musica tmb
+        _uiState.update { it.copy(jocEnPausa = true) }
+    }
+
+    fun reprendreJoc() {
+        _uiState.update { it.copy(jocEnPausa = false) }
+        activarSensors()//torno a encenre el sensor
+        mediaPlayer?.start()//torno a encenre la musica
+        iniciarCronometre()//torno a encenre el temps
+    }
+
+    fun formatTemps(segons: Int): String { //per formatar el temps en minuts i segons
+        val m = segons / 60
+        val s = segons % 60
+        return "%02d:%02d".format(m, s)
+    }
+
+
+    fun activarSensors() {
+        accelerometer?.let {
+            //torno a activar el sensor
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+        }
+    }
+    fun desactivarSensors() {
+        //deixo d'utilitzar el sensor per quan esta en segon pla
+        sensorManager.unregisterListener(this)
+    }
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
 
